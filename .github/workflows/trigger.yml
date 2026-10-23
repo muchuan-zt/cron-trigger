@@ -21,15 +21,15 @@ jobs:
             -d '{"ref":"master"}' \
             -w "\nHTTP %{http_code}\n"
 
-      - name: Keepalive commit (prevent 60-day schedule disable)
+      - name: Checkout for keepalive
         if: always()
         uses: actions/checkout@v4
         with:
-          persist-credentials: true
+          token: ${{ secrets.TRIGGER_PAT }}
       - name: Push keepalive commit
         if: always()
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "muchuan-zt"
+          git config user.email "muchuan-zt@users.noreply.github.com"
           git commit --allow-empty -m "keepalive: $(date -u +%F)" || true
           git push || true
