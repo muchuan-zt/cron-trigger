@@ -6,6 +6,9 @@ on:
       timezone: "Asia/Shanghai"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   dispatch:
     runs-on: ubuntu-latest
@@ -24,12 +27,10 @@ jobs:
       - name: Checkout for keepalive
         if: always()
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.TRIGGER_PAT }}
       - name: Push keepalive commit
         if: always()
         run: |
-          git config user.name "muchuan-zt"
-          git config user.email "muchuan-zt@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git commit --allow-empty -m "keepalive: $(date -u +%F)" || true
           git push || true
