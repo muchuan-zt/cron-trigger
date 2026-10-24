@@ -1,0 +1,29 @@
+name: email test (temporary)
+
+on:
+  schedule:
+    - cron: "29 13 * * *"   # 北京 21:29
+    - cron: "39 13 * * *"   # 北京 21:39 兜底（防 GitHub cron 注册延迟）
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch private checkin
+        env:
+          GH_TOKEN: ${{ secrets.TRIGGER_PAT }}
+        run: |
+          set -o pipefail
+          url="https://api.github.com/repos/muchuan-zt/swms-auto-checkin/actions/workflows/auto-checkin.yml/dispatches"
+          code=$(curl -s -o /tmp/resp -w '%{http_code}' -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -d '{"ref":"master"}' \
+            "$url")
+          echo "dispatch HTTP $code"
+          cat /tmp/resp || true
+          [ "$code" = "204" ] || { echo "::error::dispatch failed HTTP $code"; exit 1; }
