@@ -1,9 +1,25 @@
+# 部署目标：muchuan-zt/cron-trigger → .github/workflows/trigger.yml
+#
+# 关键修正：
+#   ★ 删掉 `timezone: "Asia/Shanghai"`（on.schedule 不支持该字段），
+#     cron 一律改写成 UTC —— 这是自动触发从未发生过的头号嫌疑。
+#   1. 与私有仓库自身的 schedule（19:31 / 19:35）刻意错开分钟，
+#      本文件负责 19:45 / 20:05，避免同一分钟并发签到。
+#   2. curl 判定 HTTP 状态码，只有 204 才算成功（旧写法 401/404 也是退出码 0，会静默假绿）
+#   3. keepalive 用 always()，dispatch 失败也照样提交，堵死 60 天停用
+
 name: trigger private checkin
 
 on:
   schedule:
-    - cron: "31 19 * * *"
-      timezone: "Asia/Shanghai"
+    # UTC。北京时间 = UTC+8，中国无夏令时，换算是固定的。
+    #   北京 19:45 → UTC 11:45
+    #   北京 20:05 → UTC 12:05
+    #
+    # 19:31 / 19:35 两跳交给私有仓库自己的 schedule（那条路不需要 PAT）。
+    - cron: "45 11 * * *"
+    - cron: "5 12 * * *"
+
   workflow_dispatch:
 
 permissions:
@@ -17,16 +33,26 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.TRIGGER_PAT }}
         run: |
-          curl -s -X POST \
+          set -o pipefail
+          url="https://api.github.com/repos/muchuan-zt/swms-auto-checkin/actions/workflows/auto-checkin.yml/dispatches"
+          code=$(curl -s -o /tmp/resp -w '%{http_code}' -X POST \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/muchuan-zt/swms-auto-checkin/actions/workflows/auto-checkin.yml/dispatches \
             -d '{"ref":"master"}' \
-            -w "\nHTTP %{http_code}\n"
+            "$url")
+          echo "dispatch HTTP $code"
+          cat /tmp/resp || true
+          # 204 = 触发成功；401 token 失效 / 404 分支或文件名不对 / 403 权限不足
+          [ "$code" = "204" ] || {
+            echo "::error::dispatch 失败，HTTP $code（204 才是成功）"
+            exit 1
+          }
 
+      # keepalive 必须在 dispatch 之后且 always()，保证 dispatch 失败也会提交
       - name: Checkout for keepalive
         if: always()
         uses: actions/checkout@v4
+
       - name: Push keepalive commit
         if: always()
         run: |
