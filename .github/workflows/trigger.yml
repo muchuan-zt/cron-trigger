@@ -1,25 +1,20 @@
-# 部署目标：muchuan-zt/cron-trigger → .github/workflows/trigger.yml
+# 【已停用】云端定时方案 —— 2026-10-24 判定失败，已迁移到本机 Windows 计划任务
 #
-# 关键修正：
-#   ★ 删掉 `timezone: "Asia/Shanghai"`（on.schedule 不支持该字段），
-#     cron 一律改写成 UTC —— 这是自动触发从未发生过的头号嫌疑。
-#   1. 与私有仓库自身的 schedule（19:31 / 19:35）刻意错开分钟，
-#      本文件负责 19:45 / 20:05，避免同一分钟并发签到。
-#   2. curl 判定 HTTP 状态码，只有 204 才算成功（旧写法 401/404 也是退出码 0，会静默假绿）
-#   3. keepalive 用 always()，dispatch 失败也照样提交，堵死 60 天停用
-
+# 结论：GitHub Actions 的 schedule 在本账号上完全不投递。两天内 0 条 schedule 事件，
+#       期间跨越了多个配置正确的纯 UTC cron 边界，并排除过 timezone 字段、cron 写法、
+#       仓库本身、提交方式（git push vs API）等变量。
+# 现状：本文件的定时器已摘除，仅保留 workflow_dispatch 供手动触发。
+#       正式签到已改为本机计划任务：SWMS-AutoCheckin（每天 19:31 / 19:36）。
+#
+# 若日后要恢复云端定时，把 on: 块改回：
+#   on:
+#     schedule:
+#       - cron: "45 11 * * *"   # 北京 19:45
+#       - cron: "5 12 * * *"    # 北京 20:05
+#     workflow_dispatch:
 name: trigger private checkin
 
 on:
-  schedule:
-    # UTC。北京时间 = UTC+8，中国无夏令时，换算是固定的。
-    #   北京 19:45 → UTC 11:45
-    #   北京 20:05 → UTC 12:05
-    #
-    # 19:31 / 19:35 两跳交给私有仓库自己的 schedule（那条路不需要 PAT）。
-    - cron: "45 11 * * *"
-    - cron: "5 12 * * *"
-
   workflow_dispatch:
 
 permissions:
